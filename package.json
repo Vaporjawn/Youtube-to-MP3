@@ -47,7 +47,7 @@
         "electron": "^9.4.0",
         "electron-packager": "^13.0.1",
         "html-webpack-plugin": "^3.2.0",
-        "node-sass": "^4.13.1",
+        "node-sass": "^7.0.0",
         "prettier": "^1.15.3",
         "sass-loader": "^7.1.0",
         "style-loader": "^0.23.1",
