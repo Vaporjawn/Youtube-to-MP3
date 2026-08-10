@@ -1,0 +1,623 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>YouTube To MP3 — a desktop ripper by Vaporjawn</title>
+<meta name="description" content="Electron desktop app that converts and downloads YouTube videos as MP3s, at the bitrate you choose. Open source, MIT licensed.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%2380f9b7'/%3E%3Cstop offset='1' stop-color='%239abdeb'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='64' height='64' rx='16' fill='url(%23g)'/%3E%3Cpath d='M26 20l18 12-18 12z' fill='%23fa7fc3'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --mint:#80f9b7;
+    --sky:#9abdeb;
+    --candy:#fa7fc3;
+    --ink:#24262b;
+    --paper:#fbfaf7;
+    --grey:#747373;
+    --paper-line: rgba(36,38,43,0.08);
+    --radius: 14px;
+    --shadow: 0 1px 2px rgba(0,0,0,0.2);
+    --display: "Fredoka", -apple-system, BlinkMacSystemFont, sans-serif;
+    --body: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    --mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+
+  *{ box-sizing:border-box; }
+  html{ scroll-behavior:smooth; }
+  body{
+    margin:0;
+    background:var(--paper);
+    color:var(--ink);
+    font-family:var(--body);
+    font-weight:400;
+    line-height:1.5;
+    -webkit-font-smoothing:antialiased;
+    overflow-x:hidden;
+  }
+  img,svg{ display:block; max-width:100%; }
+  a{ color:inherit; }
+  :focus-visible{
+    outline: 3px solid var(--candy);
+    outline-offset: 3px;
+    border-radius: 4px;
+  }
+
+  .wrap{
+    max-width:1080px;
+    margin:0 auto;
+    padding:0 24px;
+  }
+  .eyebrow{
+    font-family:var(--mono);
+    font-size:12px;
+    letter-spacing:0.14em;
+    text-transform:uppercase;
+    color:var(--grey);
+    margin:0 0 10px;
+  }
+  h1,h2,h3{ font-family:var(--display); font-weight:600; margin:0; }
+  code, .mono{ font-family:var(--mono); }
+
+  /* ---------- Nav ---------- */
+  header.site{
+    position:relative;
+    z-index:5;
+  }
+  .nav{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    padding:22px 0;
+  }
+  .nav .wordmark{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    font-family:var(--display);
+    font-weight:600;
+    font-size:17px;
+    color:#fff;
+    text-decoration:none;
+  }
+  .nav .wordmark .dot{
+    width:10px; height:10px; border-radius:50%;
+    background:var(--candy);
+    box-shadow:0 0 0 4px rgba(255,255,255,0.35);
+  }
+  .nav .links{ display:flex; gap:22px; align-items:center; }
+  .nav a.ghlink{
+    display:flex; align-items:center; gap:8px;
+    color:#fff; text-decoration:none;
+    font-size:14px; font-weight:600;
+    padding:9px 16px;
+    border-radius:999px;
+    background:rgba(255,255,255,0.16);
+    border:1px solid rgba(255,255,255,0.35);
+    transition:background .15s ease, transform .15s ease;
+  }
+  .nav a.ghlink:hover{ background:rgba(255,255,255,0.28); transform:translateY(-1px); }
+  .nav a.ghlink svg{ width:16px; height:16px; }
+
+  /* ---------- Hero ---------- */
+  .hero{
+    position:relative;
+    background:linear-gradient(135deg, var(--mint) 0%, var(--sky) 100%);
+    padding-bottom:88px;
+    overflow:hidden;
+  }
+  .hero::after{
+    content:"";
+    position:absolute; inset:0;
+    background:
+      radial-gradient(60% 50% at 85% 0%, rgba(255,255,255,0.35), transparent 60%),
+      radial-gradient(40% 40% at 0% 100%, rgba(250,127,195,0.25), transparent 60%);
+    pointer-events:none;
+  }
+  .hero-grid{
+    position:relative;
+    display:grid;
+    grid-template-columns: 1.05fr 0.95fr;
+    gap:48px;
+    align-items:center;
+    padding-top:28px;
+  }
+  .hero h1{
+    color:#fff;
+    font-size:clamp(34px, 5vw, 54px);
+    line-height:1.05;
+    letter-spacing:-0.01em;
+    text-shadow:0 2px 18px rgba(0,0,0,0.08);
+  }
+  .hero h1 .arrow{
+    display:inline-block;
+    color:var(--candy);
+    -webkit-text-stroke: 0.5px rgba(255,255,255,0.6);
+  }
+  .hero p.lede{
+    color:rgba(36,38,43,0.86);
+    font-size:18px;
+    font-weight:400;
+    max-width:46ch;
+    margin:18px 0 28px;
+  }
+  .cta-row{ display:flex; flex-wrap:wrap; gap:12px; align-items:center; }
+  .btn{
+    display:inline-flex; align-items:center; gap:8px;
+    padding:14px 22px;
+    border-radius:999px;
+    font-weight:600;
+    font-size:15px;
+    text-decoration:none;
+    box-shadow:var(--shadow);
+    border:0;
+    cursor:pointer;
+    transition:transform .15s ease, box-shadow .15s ease;
+  }
+  .btn:hover{ transform:translateY(-2px); box-shadow:0 6px 18px rgba(0,0,0,0.18); }
+  .btn-primary{ background:var(--candy); color:#fff; }
+  .btn-ghost{ background:rgba(255,255,255,0.55); color:var(--ink); border:1px solid rgba(36,38,43,0.15); }
+
+  .platform-badges{
+    display:flex; gap:10px; margin-top:22px; flex-wrap:wrap;
+  }
+  .badge{
+    font-family:var(--mono);
+    font-size:12px;
+    padding:5px 11px;
+    border-radius:999px;
+    background:rgba(255,255,255,0.55);
+    color:var(--ink);
+    border:1px solid rgba(36,38,43,0.12);
+  }
+
+  /* ---------- App mockup (signature element) ---------- */
+  .mockup{
+    background:#fff;
+    border-radius:18px;
+    box-shadow:0 24px 60px rgba(20,30,25,0.25);
+    overflow:hidden;
+    transform:rotate(1.2deg);
+  }
+  .mockup .chrome{
+    display:flex; align-items:center; gap:7px;
+    padding:12px 14px;
+    background:#f4f3ef;
+    border-bottom:1px solid rgba(36,38,43,0.08);
+  }
+  .mockup .chrome i{
+    width:11px; height:11px; border-radius:50%; display:block;
+  }
+  .mockup .chrome i:nth-child(1){ background:#ff6259; }
+  .mockup .chrome i:nth-child(2){ background:#ffbd2e; }
+  .mockup .chrome i:nth-child(3){ background:#28ca41; }
+  .mockup .chrome span{
+    margin-left:8px;
+    font-family:var(--mono);
+    font-size:11px;
+    color:var(--grey);
+  }
+  .mockup .screen{
+    background:linear-gradient(135deg, var(--mint) 0%, var(--sky) 100%);
+    padding:34px 26px;
+    min-height:190px;
+    display:flex;
+    flex-direction:column;
+    justify-content:center;
+    gap:14px;
+  }
+  .mockup .row{ display:flex; gap:10px; }
+  .mockup .input{
+    flex:1;
+    height:46px;
+    border-radius:10px;
+    background:#fff;
+    box-shadow:var(--shadow);
+    display:flex; align-items:center;
+    padding:0 14px;
+    font-family:var(--body);
+    font-weight:300;
+    font-size:14px;
+    color:var(--grey);
+  }
+  .mockup .convert{
+    height:46px; padding:0 20px;
+    border-radius:10px;
+    background:var(--candy);
+    color:#fff;
+    font-weight:300;
+    font-size:14px;
+    box-shadow:var(--shadow);
+    display:flex; align-items:center;
+    white-space:nowrap;
+  }
+  .mockup .idle{ display:flex; }
+  .mockup .progress{ display:none; flex-direction:column; gap:10px; }
+  .mockup.is-busy .idle{ display:none; }
+  .mockup.is-busy .progress{ display:flex; }
+  .mockup .bar-track{
+    height:34px; border-radius:10px;
+    background:rgba(255,255,255,0.65);
+    box-shadow:var(--shadow);
+    overflow:hidden;
+    position:relative;
+  }
+  .mockup .bar-fill{
+    height:100%;
+    width:0%;
+    border-radius:10px;
+    background:var(--candy);
+    transition:width .5s ease-in-out;
+  }
+  .mockup .bar-label{
+    font-family:var(--body); font-weight:300; font-size:13px;
+    color:#fff; text-shadow:var(--shadow);
+    display:flex; justify-content:space-between;
+  }
+  .mockup .caption{
+    padding:14px 26px 18px;
+    font-family:var(--mono);
+    font-size:12px;
+    color:var(--grey);
+    background:#fff;
+  }
+
+  @media (prefers-reduced-motion: reduce){
+    .mockup .bar-fill{ transition:none; }
+  }
+
+  /* ---------- Sections on paper ---------- */
+  section{ padding:64px 0; }
+  .section-head{ max-width:56ch; margin-bottom:36px; }
+  .section-head h2{ font-size:clamp(24px,3vw,32px); }
+
+  /* pipeline */
+  .pipeline{
+    display:grid;
+    grid-template-columns:repeat(3,1fr);
+    gap:20px;
+  }
+  .step{
+    position:relative;
+    background:#fff;
+    border:1px solid var(--paper-line);
+    border-radius:var(--radius);
+    padding:26px 22px 22px;
+    overflow:hidden;
+  }
+  .step .num{
+    position:absolute; top:-6px; right:8px;
+    font-family:var(--mono);
+    font-size:64px;
+    font-weight:500;
+    color:var(--paper-line);
+    line-height:1;
+  }
+  .step h3{ font-size:17px; margin-bottom:8px; position:relative; }
+  .step p{ margin:0; color:var(--grey); font-size:14.5px; position:relative; }
+  .step .tag{
+    display:inline-block;
+    margin-top:12px;
+    font-family:var(--mono);
+    font-size:11px;
+    color:var(--candy);
+    background:rgba(250,127,195,0.1);
+    padding:4px 9px;
+    border-radius:999px;
+    position:relative;
+  }
+
+  /* quality meter */
+  .quality{ background:var(--paper); }
+  .meter{
+    display:flex;
+    align-items:flex-end;
+    gap:18px;
+    height:180px;
+    padding:20px 6px 0;
+    border-bottom:1px solid var(--paper-line);
+  }
+  .meter .bar{
+    flex:1;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:flex-end;
+    gap:10px;
+    height:100%;
+  }
+  .meter .col{
+    width:100%;
+    max-width:56px;
+    border-radius:10px 10px 4px 4px;
+    background:linear-gradient(180deg, var(--candy), var(--sky));
+    box-shadow:var(--shadow);
+  }
+  .meter .kbps{ font-family:var(--mono); font-size:13px; font-weight:500; }
+  .meter .name{ font-size:12px; color:var(--grey); text-align:center; }
+
+  /* terminal / get started */
+  .get-started{ background:var(--ink); color:#fbfaf7; }
+  .get-started .section-head h2{ color:#fff; }
+  .get-started .section-head p{ color:rgba(251,250,247,0.65); }
+  .terminal{
+    background:#1a1c20;
+    border-radius:var(--radius);
+    border:1px solid rgba(255,255,255,0.08);
+    overflow:hidden;
+    box-shadow:0 20px 50px rgba(0,0,0,0.35);
+  }
+  .terminal .bar{
+    display:flex; gap:7px; align-items:center;
+    padding:12px 14px;
+    background:rgba(255,255,255,0.04);
+  }
+  .terminal .bar i{ width:10px; height:10px; border-radius:50%; }
+  .terminal .bar i:nth-child(1){ background:#ff6259; }
+  .terminal .bar i:nth-child(2){ background:#ffbd2e; }
+  .terminal .bar i:nth-child(3){ background:#28ca41; }
+  .terminal pre{
+    margin:0;
+    padding:22px 24px 26px;
+    font-family:var(--mono);
+    font-size:13.5px;
+    line-height:1.9;
+    overflow-x:auto;
+    color:#e7e6e2;
+  }
+  .terminal .c{ color:var(--mint); }
+  .terminal .p{ color:var(--grey); }
+
+  /* stack + disclaimer strip */
+  .strip{
+    display:flex; flex-wrap:wrap; gap:14px;
+    align-items:center; justify-content:space-between;
+    padding:30px 0;
+    border-top:1px solid var(--paper-line);
+    border-bottom:1px solid var(--paper-line);
+  }
+  .chips{ display:flex; gap:8px; flex-wrap:wrap; }
+  .chip{
+    font-family:var(--mono);
+    font-size:12px;
+    padding:6px 12px;
+    border-radius:999px;
+    border:1px solid var(--paper-line);
+    color:var(--grey);
+  }
+  .disclaimer{
+    display:flex; align-items:center; gap:8px;
+    font-size:13px; color:var(--grey);
+    max-width:44ch;
+  }
+  .disclaimer .flag{
+    font-family:var(--mono); font-size:11px;
+    color:var(--candy); border:1px solid rgba(250,127,195,0.4);
+    padding:3px 8px; border-radius:6px; white-space:nowrap;
+  }
+
+  footer.site{ padding:34px 0 50px; }
+  .foot-row{
+    display:flex; flex-wrap:wrap; gap:12px;
+    align-items:center; justify-content:space-between;
+    font-size:13px; color:var(--grey);
+  }
+  .foot-row a{ text-decoration:none; font-weight:600; color:var(--ink); }
+  .foot-row a:hover{ color:var(--candy); }
+
+  @media (max-width: 860px){
+    .hero-grid{ grid-template-columns:1fr; }
+    .mockup{ transform:none; }
+    .pipeline{ grid-template-columns:1fr; }
+    .nav .links span.hide-mobile{ display:none; }
+  }
+</style>
+</head>
+<body>
+
+<header class="site">
+  <div class="hero">
+    <div class="wrap">
+      <nav class="nav">
+        <a class="wordmark" href="#top">
+          <span class="dot" aria-hidden="true"></span>
+          YouTube&nbsp;To&nbsp;MP3
+        </a>
+        <div class="links">
+          <a class="ghlink" href="https://github.com/Vaporjawn/Youtube-to-MP3" target="_blank" rel="noopener">
+            <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8Z"/></svg>
+            <span class="hide-mobile">View on GitHub</span>
+          </a>
+        </div>
+      </nav>
+
+      <div class="hero-grid" id="top">
+        <div>
+          <h1>Every link becomes<br><span class="arrow">an MP3.</span></h1>
+          <p class="lede">
+            YouTube&nbsp;To&nbsp;MP3 is a small Electron desktop app: paste a link, pick a
+            bitrate, get a finished MP3 in your downloads folder. No web upload,
+            no account, no ads &mdash; it runs on your machine.
+          </p>
+          <div class="cta-row">
+            <a class="btn btn-primary" href="https://github.com/Vaporjawn/Youtube-to-MP3" target="_blank" rel="noopener">Get the source →</a>
+            <a class="btn btn-ghost" href="#get-started">Build &amp; run it</a>
+          </div>
+          <div class="platform-badges">
+            <span class="badge">macOS</span>
+            <span class="badge">Windows</span>
+            <span class="badge">MIT licensed</span>
+            <span class="badge">v1.0.3</span>
+          </div>
+        </div>
+
+        <div class="mockup" id="mockup">
+          <div class="chrome">
+            <i></i><i></i><i></i>
+            <span>YouTube To MP3</span>
+          </div>
+          <div class="screen">
+            <div class="row idle">
+              <div class="input">https://youtube.com/watch?v=&hellip;</div>
+              <div class="convert">Convert</div>
+            </div>
+            <div class="progress">
+              <div class="bar-track"><div class="bar-fill" id="barFill"></div></div>
+              <div class="bar-label"><span id="barMsg">Fetching video info&hellip;</span><span id="barPct">0%</span></div>
+            </div>
+          </div>
+          <div class="caption">/src/containers/app.container.jsx</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</header>
+
+<main>
+  <section class="pipeline-section">
+    <div class="wrap">
+      <div class="section-head">
+        <p class="eyebrow">The pipeline</p>
+        <h2>Three steps, all local.</h2>
+      </div>
+      <div class="pipeline">
+        <div class="step">
+          <span class="num">01</span>
+          <h3>Paste a link</h3>
+          <p>Drop in any YouTube URL. The app fetches the video's title and metadata with <code>ytdl-core</code> before touching your disk.</p>
+          <span class="tag">getInfo()</span>
+        </div>
+        <div class="step">
+          <span class="num">02</span>
+          <h3>Pull the audio</h3>
+          <p>The audio-only stream downloads straight to a temporary file, with a live progress bar tracking bytes received.</p>
+          <span class="tag">audioonly</span>
+        </div>
+        <div class="step">
+          <span class="num">03</span>
+          <h3>Encode &amp; clean up</h3>
+          <p>A bundled <code>ffmpeg</code> binary encodes the temp file to MP3 at your chosen bitrate, then the temp file is deleted.</p>
+          <span class="tag">fluent-ffmpeg</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="quality">
+    <div class="wrap">
+      <div class="section-head">
+        <p class="eyebrow">Preferences → Change Bitrate</p>
+        <h2>Five presets, picked from the app's own menu bar.</h2>
+      </div>
+      <div class="meter">
+        <div class="bar"><div class="kbps">320</div><div class="col" style="height:100%"></div><div class="name">Full Quality</div></div>
+        <div class="bar"><div class="kbps">192</div><div class="col" style="height:68%"></div><div class="name">High Quality</div></div>
+        <div class="bar"><div class="kbps">160</div><div class="col" style="height:56%"></div><div class="name">CD Quality</div></div>
+        <div class="bar"><div class="kbps">130</div><div class="col" style="height:44%"></div><div class="name">Radio Quality</div></div>
+        <div class="bar"><div class="kbps">65</div><div class="col" style="height:24%"></div><div class="name">Minimal Quality</div></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="get-started" id="get-started">
+    <div class="wrap">
+      <div class="section-head">
+        <p class="eyebrow">Run it yourself</p>
+        <h2>Clone, build, start.</h2>
+      </div>
+      <div class="terminal">
+        <div class="bar"><i></i><i></i><i></i></div>
+        <pre><span class="p"># clone the repo</span>
+<span class="c">git</span> clone https://github.com/Vaporjawn/Youtube-to-MP3.git
+<span class="c">cd</span> Youtube-to-MP3
+
+<span class="p"># install dependencies</span>
+<span class="c">yarn</span>
+
+<span class="p"># bundle the renderer with webpack</span>
+<span class="c">yarn</span> build
+
+<span class="p"># launch the Electron app</span>
+<span class="c">yarn</span> start</pre>
+      </div>
+    </div>
+  </section>
+
+  <section class="footer-section">
+    <div class="wrap">
+      <div class="strip">
+        <div class="chips">
+          <span class="chip">Electron</span>
+          <span class="chip">React</span>
+          <span class="chip">Sass</span>
+          <span class="chip">Webpack</span>
+        </div>
+        <div class="disclaimer">
+          <span class="flag">note</span>
+          <span>For use with non-copyrighted material only.</span>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer class="site">
+  <div class="wrap">
+    <div class="foot-row">
+      <span>MIT License &copy; 2020 Victor Williams</span>
+      <a href="https://github.com/Vaporjawn" target="_blank" rel="noopener">github.com/Vaporjawn</a>
+    </div>
+  </div>
+</footer>
+
+<script>
+  (function(){
+    var reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (reduceMotion) return;
+
+    var mockup = document.getElementById('mockup');
+    var fill = document.getElementById('barFill');
+    var msg = document.getElementById('barMsg');
+    var pct = document.getElementById('barPct');
+
+    var steps = [
+      { message: 'Fetching video info…', to: 8,   hold: 900 },
+      { message: 'Downloading…',          to: 62,  hold: 1400 },
+      { message: 'Converting…',           to: 99,  hold: 1400 },
+      { message: 'Conversion successful!', to: 100, hold: 1600 }
+    ];
+
+    function setBar(pctVal){
+      fill.style.width = pctVal + '%';
+      pct.textContent = pctVal + '%';
+    }
+
+    function runCycle(){
+      mockup.classList.remove('is-busy');
+      setBar(0);
+      setTimeout(function(){
+        mockup.classList.add('is-busy');
+        var i = 0;
+        function next(){
+          if (i >= steps.length){
+            setTimeout(runCycle, 1800);
+            return;
+          }
+          var step = steps[i];
+          msg.textContent = step.message;
+          setBar(step.to);
+          i++;
+          setTimeout(next, step.hold);
+        }
+        next();
+      }, 1600);
+    }
+
+    runCycle();
+  })();
+</script>
+
+</body>
+</html>
