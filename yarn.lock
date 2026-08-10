@@ -2333,10 +2333,10 @@ electron-download@^4.1.1:
     semver "^5.4.1"
     sumchecker "^2.0.2"
 
-electron-is-dev@^1.0.1:
-  version "1.0.1"
-  resolved "https://registry.yarnpkg.com/electron-is-dev/-/electron-is-dev-1.0.1.tgz#6e0a184736fe7aea77d18210b0b0f6a02402c4bc"
-  integrity sha512-iwM3EotA9HTXqMGpQRkR/kT8OZqBbdfHTnlwcxsjSLYqY8svvsq0MuujsWCn3/vtgRmDv/PC/gKUUpoZvi5C1w==
+electron-is-dev@^3.0.1:
+  version "3.0.1"
+  resolved "https://registry.yarnpkg.com/electron-is-dev/-/electron-is-dev-3.0.1.tgz#1cbc79b1dd046787903acd357efdfab6549dc17a"
+  integrity sha512-8TjjAh8Ec51hUi3o4TaU0mD3GMTOESi866oRNavj9A3IQJ7pmv+MJVmdZBFGw4GFT36X7bkqnuDNYvkQgvyI8Q==
 
 electron-notarize@^0.0.5:
   version "0.0.5"

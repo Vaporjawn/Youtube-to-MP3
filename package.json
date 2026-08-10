@@ -27,7 +27,7 @@
         "javascript"
     ],
     "dependencies": {
-        "electron-is-dev": "^1.0.1",
+        "electron-is-dev": "^3.0.1",
         "electron-reload": "^1.2.2",
         "ffmpeg-binaries": "4.0.0",
         "fluent-ffmpeg": "^2.1.2",
