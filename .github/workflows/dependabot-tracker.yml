@@ -1,0 +1,65 @@
+name: Dependabot Issue & Project Tracker
+
+on:
+  pull_request_target:
+    types: [opened]
+
+permissions:
+  contents: read
+  issues: write
+  pull-requests: write
+
+jobs:
+  track:
+    if: github.actor == 'dependabot[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Assign PR to Vaporjawn
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh pr edit "${{ github.event.pull_request.number }}" \
+            --repo "${{ github.repository }}" \
+            --add-assignee Vaporjawn
+
+      - name: Ensure "dependencies" label exists
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh label create dependencies --repo "${{ github.repository }}" --color "0366d6" --description "Dependency updates" 2>/dev/null || true
+
+      - name: Create linked tracking issue
+        id: issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          ISSUE_URL=$(gh issue create \
+            --repo "${{ github.repository }}" \
+            --title "Dependabot: ${{ github.event.pull_request.title }}" \
+            --body "Tracks dependency update PR #${{ github.event.pull_request.number }}: ${{ github.event.pull_request.html_url }}" \
+            --assignee Vaporjawn \
+            --label dependencies)
+          echo "url=$ISSUE_URL" >> "$GITHUB_OUTPUT"
+          echo "number=$(basename "$ISSUE_URL")" >> "$GITHUB_OUTPUT"
+
+      - name: Link issue on the PR (auto-closes issue when PR merges)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          BODY=$(gh pr view "${{ github.event.pull_request.number }}" --repo "${{ github.repository }}" --json body -q .body)
+          printf '%s\n\nCloses #%s\n' "$BODY" "${{ steps.issue.outputs.number }}" > /tmp/new_body.md
+          gh pr edit "${{ github.event.pull_request.number }}" --repo "${{ github.repository }}" --body-file /tmp/new_body.md
+
+      - name: Add PR and issue to "My Work" project
+        env:
+          GH_TOKEN: ${{ secrets.PROJECT_TOKEN }}
+        run: |
+          if [ -z "$GH_TOKEN" ]; then
+            echo "PROJECT_TOKEN secret not set on this repo - skipping project linking."
+            exit 0
+          fi
+          PROJECT_ID="PVT_kwHOAO97Sc4BfH9E"
+          PR_NODE_ID="${{ github.event.pull_request.node_id }}"
+          ISSUE_NODE_ID=$(gh api "repos/${{ github.repository }}/issues/${{ steps.issue.outputs.number }}" -q .node_id)
+          gh api graphql -f query='mutation($project:ID!, $item:ID!){ addProjectV2ItemById(input:{projectId:$project, contentId:$item}){ item { id } } }' -f project="$PROJECT_ID" -f item="$PR_NODE_ID"
+          gh api graphql -f query='mutation($project:ID!, $item:ID!){ addProjectV2ItemById(input:{projectId:$project, contentId:$item}){ item { id } } }' -f project="$PROJECT_ID" -f item="$ISSUE_NODE_ID"
