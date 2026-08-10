@@ -7,6 +7,10 @@ updates:
     open-pull-requests-limit: 10
     assignees:
       - "Vaporjawn"
+    groups:
+      all-dependencies:
+        patterns:
+          - "*"
     ignore:
       - dependency-name: "*"
         update-types:
