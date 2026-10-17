@@ -4,7 +4,7 @@
 //   node scripts/fetch-binaries.mjs [target ...]      targets: mac-arm64 mac-x64 win-x64 linux-x64 linux-arm64
 //   (no target = the machine this runs on)
 import {createHash} from 'node:crypto';
-import {chmodSync, existsSync, mkdirSync, readFileSync, renameSync, writeFileSync} from 'node:fs';
+import {chmodSync, createWriteStream, existsSync, mkdirSync, readFileSync, renameSync, rmSync, statSync, writeFileSync} from 'node:fs';
 import {dirname, join} from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {unzipSync} from 'fflate';
@@ -22,21 +22,70 @@ function sha256(buffer) {
     return createHash('sha256').update(buffer).digest('hex');
 }
 
+const MAX_FAILURES_IN_A_ROW = 6;
+const STALL_MS = 30000;
+
+/**
+ * Downloads one URL into `partial`, resuming from what is already there. A transfer that stops sending data
+ * for STALL_MS is abandoned and retried, so a slow or flaky connection cannot hang the build. Only attempts that
+ * get no data at all count towards giving up.
+ */
+async function downloadWithResume(url, partial) {
+    let failuresInARow = 0;
+    for (;;) {
+        const have = existsSync(partial) ? statSync(partial).size : 0;
+        const controller = new AbortController();
+        let timer = setTimeout(() => controller.abort(), STALL_MS);
+        const touch = () => {
+            clearTimeout(timer);
+            timer = setTimeout(() => controller.abort(), STALL_MS);
+        };
+
+        try {
+            const response = await fetch(url, {
+                redirect: 'follow',
+                signal: controller.signal,
+                headers: have > 0 ? {Range: `bytes=${have}-`} : {}
+            });
+            if (response.status === 416) return; // already complete
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+            const resumed = response.status === 206;
+            if (!resumed && have > 0) writeFileSync(partial, '');
+            const out = createWriteStream(partial, {flags: resumed ? 'a' : 'w'});
+            for await (const chunk of response.body) {
+                failuresInARow = 0;
+                touch();
+                if (!out.write(chunk)) await new Promise((resolve) => out.once('drain', resolve));
+            }
+            await new Promise((resolve, reject) => out.end((error) => (error ? reject(error) : resolve())));
+            clearTimeout(timer);
+            return;
+        } catch (error) {
+            clearTimeout(timer);
+            failuresInARow++;
+            if (failuresInARow >= MAX_FAILURES_IN_A_ROW) throw new Error(`Download failed for ${url}: ${error.message}`);
+            console.log(`  interrupted (${error.name === 'AbortError' ? 'stalled' : error.message}), resuming`);
+            await new Promise((resolve) => setTimeout(resolve, 1500 * failuresInARow));
+        }
+    }
+}
+
 async function download(asset) {
     mkdirSync(cacheDir, {recursive: true});
     const cached = join(cacheDir, asset.sha256);
     if (existsSync(cached) && sha256(readFileSync(cached)) === asset.sha256) return readFileSync(cached);
 
     console.log(`  downloading ${asset.url}`);
-    const response = await fetch(asset.url, {redirect: 'follow'});
-    if (!response.ok) throw new Error(`Download failed (${response.status}) for ${asset.url}`);
-    const data = Buffer.from(await response.arrayBuffer());
+    const partial = `${cached}.partial`;
+    await downloadWithResume(asset.url, partial);
+
+    const data = readFileSync(partial);
     const actual = sha256(data);
     if (actual !== asset.sha256) {
+        rmSync(partial, {force: true});
         throw new Error(`Checksum mismatch for ${asset.url}\n  expected ${asset.sha256}\n  actual   ${actual}`);
     }
-    const partial = `${cached}.partial`;
-    writeFileSync(partial, data);
     renameSync(partial, cached);
     return data;
 }

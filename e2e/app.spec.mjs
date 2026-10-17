@@ -1,7 +1,7 @@
 import {existsSync, readdirSync, statSync} from 'node:fs';
 import {join} from 'node:path';
 import {expect, test} from '@playwright/test';
-import {inspectMp3, launchApp} from './launch.js';
+import {inspectMp3, launchApp} from './launch.mjs';
 
 const SHORT_VIDEO = 'https://www.youtube.com/watch?v=jNQXAC9IVRw'; // "Me at the zoo", 19 seconds
 const LONGER_VIDEO = 'https://www.youtube.com/watch?v=aqz-KE-bpKQ'; // Big Buck Bunny
