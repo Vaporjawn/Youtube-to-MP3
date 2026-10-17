@@ -11,6 +11,7 @@ const {buildArgs} = require('./args');
 const {parseLine, createLineSplitter} = require('./output');
 const {classifyError, summarizeDetail} = require('./errors');
 const {killProcessTree} = require('./processes');
+const {findNewestMp3} = require('./files');
 
 const MIN_MS_BETWEEN_AUTOMATIC_UPDATES = 30 * 60 * 1000;
 
@@ -74,12 +75,17 @@ function createConverter({binaries, updater, emit, spawnProcess = spawn, tempRoo
         // Electron's own binary can act as the Node runtime yt-dlp uses to solve YouTube's challenges.
         return {
             args: ['--js-runtimes', `node:${process.execPath}`],
-            env: {...process.env, ELECTRON_RUN_AS_NODE: '1'}
+            env: {...baseEnvironment(), ELECTRON_RUN_AS_NODE: '1'}
         };
     }
 
+    // Windows pipes use the system code page unless told otherwise, which would garble non-English titles.
+    function baseEnvironment() {
+        return {...process.env, PYTHONUTF8: '1', PYTHONIOENCODING: 'utf-8'};
+    }
+
     async function attempt({url, bitrate, downloadFolder, tempFolder, useJsRuntime}) {
-        const runtime = useJsRuntime ? jsRuntimeEnvironment() : {args: [], env: process.env};
+        const runtime = useJsRuntime ? jsRuntimeEnvironment() : {args: [], env: baseEnvironment()};
         const args = buildArgs({
             url,
             bitrate,
@@ -124,6 +130,7 @@ function createConverter({binaries, updater, emit, spawnProcess = spawn, tempRoo
 
         running = true;
         cancelled = false;
+        const startedAt = now();
         let tempFolder;
 
         try {
@@ -153,8 +160,12 @@ function createConverter({binaries, updater, emit, spawnProcess = spawn, tempRoo
                 return failure(verdict.code, verdict.message, summarizeDetail(result.stderr));
             }
 
+            // yt-dlp reports where it saved the file. If that path is not real, look for the new MP3 instead.
+            let filePath = result.filePath;
+            if (!filePath || !fs.existsSync(filePath)) filePath = findNewestMp3(downloadFolder, startedAt - 2000);
+
             emit({stage: 'done', percent: 100});
-            return {ok: true, filePath: result.filePath, title: result.title};
+            return {ok: true, filePath, title: result.title};
         } finally {
             running = false;
             activeChild = null;

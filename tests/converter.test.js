@@ -1,5 +1,5 @@
 import {EventEmitter} from 'node:events';
-import {existsSync, mkdtempSync, readdirSync, rmSync} from 'node:fs';
+import {existsSync, mkdtempSync, readdirSync, rmSync, utimesSync, writeFileSync} from 'node:fs';
 import {createRequire} from 'node:module';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
@@ -13,11 +13,14 @@ const URL_OK = 'https://www.youtube.com/watch?v=aqz-KE-bpKQ';
 let root;
 let downloads;
 let tempRoot;
+let produced;
 beforeEach(() => {
     root = mkdtempSync(join(tmpdir(), 'conv-test-'));
     downloads = join(root, 'downloads');
     tempRoot = join(root, 'tmp');
     require_mkdirs();
+    produced = join(root, 'Big Buck Bunny.mp3');
+    writeFileSync(produced, 'mp3');
 });
 afterEach(() => rmSync(root, {recursive: true, force: true}));
 
@@ -62,7 +65,7 @@ const success = ({out, err, finish}) => {
     out('TITLE|Big Buck Bunny\n');
     out('PROGRESS|50|100|NA\nPROGRESS|100|100|NA\n');
     err('PP|started|ExtractAudio\nPP|finished|ExtractAudio\n');
-    out(`FILE|${join('/out', 'Big Buck Bunny.mp3')}\n`);
+    out(`FILE|${produced}\n`);
     finish(0);
 };
 
@@ -94,12 +97,40 @@ describe('createConverter.convert', () => {
         const {converter, calls, events} = setup([success]);
         const result = await converter.convert(job());
 
-        expect(result).toEqual({ok: true, filePath: join('/out', 'Big Buck Bunny.mp3'), title: 'Big Buck Bunny'});
+        expect(result).toEqual({ok: true, filePath: produced, title: 'Big Buck Bunny'});
         expect(calls).toHaveLength(1);
         expect(calls[0].command).toBe('/user/yt-dlp');
         expect(calls[0].options.windowsHide).toBe(true);
         expect(events.map((event) => event.stage)).toEqual(['starting', 'downloading', 'downloading', 'downloading', 'converting', 'done']);
         expect(events.filter((event) => event.stage === 'downloading').map((event) => event.percent)).toEqual([0, 50, 100]);
+    });
+
+    it('makes yt-dlp talk in UTF-8 so non-English titles survive on Windows', async () => {
+        const {converter, calls} = setup([success]);
+        await converter.convert(job());
+        expect(calls[0].options.env.PYTHONUTF8).toBe('1');
+        expect(calls[0].options.env.PYTHONIOENCODING).toBe('utf-8');
+    });
+
+    it('finds the new MP3 when the path yt-dlp printed does not exist', async () => {
+        const written = join(downloads, 'Caf\u00e9 \u97f3\u697d.mp3');
+        const garbled = ({out, finish}) => {
+            out('TITLE|Caf\u00e9\n');
+            writeFileSync(written, 'mp3');
+            out('FILE|C:\\Music\\Caf? ??.mp3\n');
+            finish(0);
+        };
+        const {converter} = setup([garbled]);
+        expect(await converter.convert(job())).toMatchObject({ok: true, filePath: written});
+    });
+
+    it('does not mistake an old MP3 in the folder for the new one', async () => {
+        const old = join(downloads, 'Old.mp3');
+        writeFileSync(old, 'mp3');
+        utimesSync(old, new Date('2020-01-01'), new Date('2020-01-01'));
+        const noFile = ({finish}) => finish(0);
+        const {converter} = setup([noFile]);
+        expect(await converter.convert(job())).toMatchObject({ok: true, filePath: null});
     });
 
     it('cleans the address before it reaches yt-dlp', async () => {
