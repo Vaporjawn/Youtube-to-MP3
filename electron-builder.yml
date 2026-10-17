@@ -1,0 +1,77 @@
+appId: dev.vaporjawn.youtube-to-mp3
+productName: YouTube To MP3
+copyright: Copyright (c) 2026 Victor Williams
+artifactName: YouTube-To-MP3-${version}-${os}-${arch}.${ext}
+
+directories:
+    output: release
+    buildResources: build
+
+# Only the app itself goes in the archive. yt-dlp and ffmpeg are separate programs that are started as
+# child processes, so they ship next to it in the app's resources folder (see extraResources).
+files:
+    - electron/**
+    - app/**
+    - build/icon.png
+    - package.json
+asar: true
+
+extraResources:
+    - from: resources/bin/${os}-${arch}
+      to: bin
+    - from: THIRD_PARTY_NOTICES.md
+      to: THIRD_PARTY_NOTICES.md
+
+mac:
+    category: public.app-category.music
+    icon: build/icon.png
+    target:
+        - target: dmg
+        - target: zip
+    # No Apple Developer ID is used, so the app is signed ad hoc. That keeps arm64 builds launchable,
+    # but macOS still shows its "unidentified developer" prompt on first open (see the README).
+    identity: '-'
+    hardenedRuntime: false
+    gatekeeperAssess: false
+
+dmg:
+    sign: false
+
+win:
+    icon: build/icon.png
+    target:
+        - target: nsis
+          arch: x64
+    # Editing the .exe needs Wine, which is not available when building on a Mac.
+    signAndEditExecutable: false
+
+nsis:
+    oneClick: false
+    perMachine: false
+    allowToChangeInstallationDirectory: true
+    createDesktopShortcut: true
+    createStartMenuShortcut: true
+
+linux:
+    icon: build/icon.png
+    category: AudioVideo
+    maintainer: Victor Williams <victor.williams.dev@gmail.com>
+    synopsis: Convert YouTube videos to MP3 on your own computer
+    target:
+        - target: AppImage
+        - target: deb
+
+deb:
+    depends:
+        - libgtk-3-0t64 | libgtk-3-0
+        - libnotify4
+        - libnss3
+        - libxss1
+        - libxtst6
+        - xdg-utils
+        - libatspi2.0-0t64 | libatspi2.0-0
+        - libuuid1
+        - libsecret-1-0
+        - libasound2t64 | libasound2
+        - libgbm1
+        - libdrm2

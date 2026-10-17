@@ -1,0 +1,9 @@
+node_modules/
+app/
+release/
+resources/bin/
+coverage/
+test-results/
+.DS_Store
+*.log
+.cache/
