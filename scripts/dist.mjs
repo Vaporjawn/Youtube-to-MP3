@@ -15,9 +15,15 @@ const PLANS = {
     linux: {targets: ['linux-x64', 'linux-arm64'], builderArgs: ['--linux', '--x64', '--arm64']}
 };
 
-function run(command, args) {
-    const result = spawnSync(command, args, {cwd: root, stdio: 'inherit', shell: process.platform === 'win32'});
-    if (result.status !== 0) process.exit(result.status ?? 1);
+// electron-builder downloads Electron and its packaging tools itself and cannot resume a dropped connection.
+// Everything it finished downloading is cached, so running it again picks up where it stopped.
+function run(command, args, attempts = 1) {
+    for (let attempt = 1; attempt <= attempts; attempt++) {
+        const result = spawnSync(command, args, {cwd: root, stdio: 'inherit', shell: process.platform === 'win32'});
+        if (result.status === 0) return;
+        if (attempt === attempts) process.exit(result.status ?? 1);
+        console.log(`\n${command} failed (attempt ${attempt} of ${attempts}); trying again...\n`);
+    }
 }
 
 const requested = process.argv[2] || 'all';
@@ -29,4 +35,4 @@ if (names.some((name) => !PLANS[name])) {
 
 run('node', ['scripts/fetch-binaries.mjs', ...names.flatMap((name) => PLANS[name].targets)]);
 run('npx', ['vite', 'build']);
-for (const name of names) run('npx', ['electron-builder', ...PLANS[name].builderArgs, '--publish', 'never']);
+for (const name of names) run('npx', ['electron-builder', ...PLANS[name].builderArgs, '--publish', 'never'], 5);
